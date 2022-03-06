@@ -54,3 +54,33 @@ SELECT * FROM learn_cassandra.users_by_email WHERE user_email='alice@email.com';
 
 SELECT * FROM learn_cassandra.users_by_email WHERE age=26 ALLOW FILTERING;
 
+CREATE TABLE learn_cassandra.users_by_country_with_leveled_compaction (
+    country text,
+    user_email text,
+    first_name text,
+    last_name text,
+    age smallint,
+    PRIMARY KEY ((country), user_email)
+) WITH
+  compaction = { 'class' :  'LeveledCompactionStrategy'  };
+
+
+  CREATE TABLE learn_cassandra.todo_by_user_email (
+    user_email text,
+    name text,
+    creation_date timestamp,
+    PRIMARY KEY ((user_email), creation_date)
+) WITH CLUSTERING ORDER BY (creation_date DESC)
+AND compaction = { 'class' :  'LeveledCompactionStrategy'  };
+
+
+BEGIN BATCH
+  INSERT INTO learn_cassandra.todo_by_user_email (user_email,creation_date,name) VALUES('alice@email.com', toTimestamp(now()), 'My first todo entry')
+
+  INSERT INTO learn_cassandra.todos_shared_by_target_user_email (target_user_email, source_user_email,creation_date,name) VALUES('bob@email.com', 'alice@email.com',toTimestamp(now()), 'My first todo entry')
+
+  INSERT INTO learn_cassandra.todos_shared_by_source_user_email (target_user_email, source_user_email,creation_date,name) VALUES('alice@email.com', 'bob@email.com', toTimestamp(now()), 'My first todo entry')
+
+APPLY BATCH;
+
+  INSERT INTO learn_cassandra.todo_by_user_email (user_email,creation_date,name) VALUES('john@email.com', toTimestamp(now()), 'This entry should be removed soon') USING TTL 60;
